@@ -552,16 +552,32 @@ static void Show_JPN_pause_title(void)
 
 void DWIN_Draw_Z_Offset_Float(uint8_t size, uint16_t color,uint16_t bcolor, uint8_t iNum, uint8_t fNum, uint16_t x, uint16_t y, long value) 
 {
-  if (value < 0) 
-  {
-    DWIN_Draw_FloatValue(true, true, 0, size, color, bcolor, iNum, fNum, x+2, y, -value);
-    DWIN_Draw_String(false, true, font6x12, color, bcolor, x+2, y, F("-"));
-  }
-  else 
-  {    
-    DWIN_Draw_FloatValue(true, true, 0, size, color, bcolor, iNum, fNum, x+1, y, value);
-    DWIN_Draw_String(false, true, font6x12, color, bcolor, x, y, F(""));
-  }
+  #if ENABLED(COMPACT_GRID_VALUES)
+    char valueStr[48] = "\0";
+    if (value < 0)
+    {
+      DWIN_Draw_String(false, true, font6x12, bcolor == Color_Bg_Black ? Color_Blue : color, bcolor, x+5, y, F("-")); // draw minus sign above
+      value *= -1;
+    } else {
+      DWIN_Draw_String(false, true, font6x12, bcolor == Color_Bg_Black ? Color_Red : color, bcolor, x+5, y, F("+")); // draw plus sign above
+    }
+    if (value < 100) {
+      sprintf_P(valueStr, ".%02d", static_cast<int>(value & 0xFF));
+    } else {
+      sprintf_P(valueStr, "%d.%d", static_cast<int>((value & 0xFF) / 100), static_cast<int>(((value & 0xFF) % 100) / 10));
+    }
+    DWIN_Draw_String(false, true, size, color, bcolor, x, y+8, F(valueStr));
+  #else // COMPACT_GRID_VALUES
+    if (value < 0)
+    {
+      DWIN_Draw_FloatValue(true, true, 0, size, color, bcolor, iNum, fNum, x+1, y, -value);
+      DWIN_Draw_String(false, true, font6x12, color, bcolor, x, y, F("-"));
+    }
+    else
+    {
+      DWIN_Draw_FloatValue(true, true, 0, size, color, bcolor, iNum, fNum, x, y, value);
+    }
+  #endif // COMPACT_GRID_VALUES
 }
 #endif
 void DWIN_Draw_Signed_Float(uint8_t size, uint16_t bColor, uint8_t iNum, uint8_t fNum, uint16_t x, uint16_t y, long value)
@@ -2268,17 +2284,15 @@ static uint16_t Choose_BG_Color(float offset_value)
     else z_offset_value=z_values[mesh_Count->x][mesh_Count->y];
     if(checkkey!=Leveling&&checkkey!=Level_Value_Edit)return;//只有在调平界面才运行显示调平值
      
-    //计算矩形区域 
-    rec_LU_x=Rect_LU_X_POS+mesh_Count->x*X_Axis_Interval;
-    // rec_LU_y=Rect_LU_Y_POS+mesh_Count->y*Y_Axis_Interval;
-    rec_LU_y=Rect_LU_Y_POS-mesh_Count->y*Y_Axis_Interval;
-    rec_RD_x=Rect_RD_X_POS+mesh_Count->x*X_Axis_Interval;
-    // rec_RD_y=Rect_RD_Y_POS+mesh_Count->y*Y_Axis_Interval;
-    rec_RD_y=Rect_RD_Y_POS-mesh_Count->y*Y_Axis_Interval;
+    //计算矩形区域  
+    rec_LU_x=Rect_LU_X_POS + mesh_Count->x * X_Axis_Interval;
+    rec_LU_y=Rect_LU_Y_POS - mesh_Count->y * Y_Axis_Interval;
+    rec_RD_x=Rect_RD_X_POS + mesh_Count->x * X_Axis_Interval;
+    rec_RD_y=Rect_RD_Y_POS - mesh_Count->y * Y_Axis_Interval;
     //补偿值的位置
-    value_LU_x=rec_LU_x+1;
-    // value_LU_y=rec_LU_y+4;
-    value_LU_y=rec_LU_y+(rec_RD_y-rec_LU_y)/2-6;
+    value_LU_x = rec_LU_x + (rec_RD_x - rec_LU_x) / 2 - CELL_TEXT_WIDTH / 2;
+    value_LU_y = rec_LU_y + (rec_RD_y - rec_LU_y) / 2 - CELL_TEXT_HEIGHT / 2 + 1;
+
     //填充颜色
     if(!Set_En)rec_fill_color=Choose_BG_Color(z_offset_value);//自动设置
     else if(1==Set_En)rec_fill_color=Set_BG_Color;  //手动填充选中块颜色，
@@ -5745,16 +5759,14 @@ void HMI_Levling_Change()
     {
       xy_int8_t mesh_Count=Converted_Grid_Point(select_level.now);    //转换网格点   
            //计算矩形区域 
-      rec_LU_x=Rect_LU_X_POS+mesh_Count.x*X_Axis_Interval;
-      // rec_LU_y=Rect_LU_Y_POS+mesh_Count.y*Y_Axis_Interval;
-      rec_LU_y=Rect_LU_Y_POS-mesh_Count.y*Y_Axis_Interval;
-      rec_RD_x=Rect_RD_X_POS+mesh_Count.x*X_Axis_Interval;
-      // rec_RD_y=Rect_RD_Y_POS+mesh_Count.y*Y_Axis_Interval;
-      rec_RD_y=Rect_RD_Y_POS-mesh_Count.y*Y_Axis_Interval;
+      rec_LU_x=Rect_LU_X_POS + mesh_Count.x * X_Axis_Interval;
+      rec_LU_y=Rect_LU_Y_POS - mesh_Count.y * Y_Axis_Interval;
+      rec_RD_x=Rect_RD_X_POS + mesh_Count.x * X_Axis_Interval;
+      rec_RD_y=Rect_RD_Y_POS - mesh_Count.y * Y_Axis_Interval;
       //补偿值的位置
-      value_LU_x=rec_LU_x+1;
-      // value_LU_y=rec_LU_y+4;
-      value_LU_y=rec_LU_y+(rec_RD_y-rec_LU_y)/2-6;   
+      value_LU_x = rec_LU_x + (rec_RD_x - rec_LU_x) / 2 - CELL_TEXT_WIDTH / 2;
+      value_LU_y = rec_LU_y + (rec_RD_y - rec_LU_y) / 2 - CELL_TEXT_HEIGHT / 2 + 1;
+
       if (Apply_Encoder(encoder_diffState, HMI_ValueStruct.Temp_Leveling_Value)) //点击了确认键 
       {
         checkkey = Leveling;
@@ -5813,16 +5825,14 @@ void HMI_Levling_Change()
     {
        xy_int8_t mesh_Count=Converted_Grid_Point(select_level.now);    //转换网格点   
            //计算矩形区域 
-      rec_LU_x=Rect_LU_X_POS+mesh_Count.x*X_Axis_Interval;
-      // rec_LU_y=Rect_LU_Y_POS+mesh_Count.y*Y_Axis_Interval;
-      rec_LU_y=Rect_LU_Y_POS-mesh_Count.y*Y_Axis_Interval;
-      rec_RD_x=Rect_RD_X_POS+mesh_Count.x*X_Axis_Interval;
-      // rec_RD_y=Rect_RD_Y_POS+mesh_Count.y*Y_Axis_Interval;
-      rec_RD_y=Rect_RD_Y_POS-mesh_Count.y*Y_Axis_Interval;
+      rec_LU_x=Rect_LU_X_POS + mesh_Count.x * X_Axis_Interval;
+      rec_LU_y=Rect_LU_Y_POS - mesh_Count.y * Y_Axis_Interval;
+      rec_RD_x=Rect_RD_X_POS + mesh_Count.x * X_Axis_Interval;
+      rec_RD_y=Rect_RD_Y_POS - mesh_Count.y * Y_Axis_Interval;
       //补偿值的位置
-      value_LU_x=rec_LU_x+1;
-      // value_LU_y=rec_LU_y+4;
-      value_LU_y=rec_LU_y+(rec_RD_y-rec_LU_y)/2-6;
+      value_LU_x = rec_LU_x + (rec_RD_x - rec_LU_x) / 2 - CELL_TEXT_WIDTH / 2;
+      value_LU_y = rec_LU_y + (rec_RD_y - rec_LU_y) / 2 - CELL_TEXT_HEIGHT / 2 + 1;
+
       //临时代码  需要继续优化      
       // xy_int8_t mesh_Count=Converted_Grid_Point(select_level.now);    //转换网格点
       Draw_Dots_On_Screen(&mesh_Count,2,Select_Color); //设置字体背景色，不改变选中块颜色

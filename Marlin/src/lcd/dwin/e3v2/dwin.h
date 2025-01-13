@@ -601,6 +601,8 @@ extern enum DC_language current_language;
 // Color  FE29
 #define Color_White       0xFFFF
 #define Color_Yellow      0xFE29
+#define Color_Blue        0x19FF
+#define Color_Red         0xF44F
 #define Color_Bg_Window   0x31E8  // Popup background color
 #define Color_Bg_Blue     0x1145  // Dark blue background color
 #define Color_Bg_Black    0x0841  // Black background color

@@ -4,35 +4,108 @@
 
 #if ENABLED(DWIN_CREALITY_480_LCD) //
 
-#elif ENABLED(DWIN_CREALITY_320_LCD)//3.2寸屏幕
-//主界面
-    #define LOGO_LITTLE_X  72  //小LOGO坐标
+#elif ENABLED(DWIN_CREALITY_320_LCD) //3.2-inch screen
+//Main Interface
+//Coordinates of the small logo
+    #define LOGO_LITTLE_X  72
     #define LOGO_LITTLE_Y  36
-//自动调平界面
-//编辑调平页面
+//Auto-Leveling Interface
+//Edit Leveling Page
     #define WORD_TITLE_X 29 
     #define WORD_TITLE_Y 1
-    #define OUTLINE_LEFT_X 12//40
-    #define OUTLINE_LEFT_Y 30//72
-    #define OUTLINE_RIGHT_X OUTLINE_LEFT_X+220//OUTLINE_LEFT_X+200//OUTLINE_LEFT_X+160
-    #define OUTLINE_RIGHT_Y OUTLINE_LEFT_Y+220//OUTLINE_LEFT_Y+160
+    #if GRID_MAX_POINTS_X <= 5
+        #define OUTLINE_HORIZONTAL_MARGIN 12
+    #else
+        #define OUTLINE_HORIZONTAL_MARGIN 2
+    #endif
+    #define OUTLINE_INNER_WIDTH (DWIN_WIDTH - (OUTLINE_HORIZONTAL_MARGIN * 2))
+    #define OUTLINE_INNER_HEIGHT 220
+    #define OUTLINE_LEFT_X OUTLINE_HORIZONTAL_MARGIN
+    #define OUTLINE_LEFT_Y 30
+    #define OUTLINE_RIGHT_X (OUTLINE_HORIZONTAL_MARGIN + OUTLINE_INNER_WIDTH)
+    #define OUTLINE_RIGHT_Y (OUTLINE_LEFT_Y + OUTLINE_INNER_HEIGHT)
     //button——position
     #define BUTTON_W 82
     #define BUTTON_H 32
     #define BUTTON_EDIT_X OUTLINE_LEFT_X
-    #define BUTTON_EDIT_Y OUTLINE_RIGHT_Y+20//OUTLINE_RIGHT_Y+27
+    #define BUTTON_EDIT_Y OUTLINE_RIGHT_Y+20
     #define BUTTON_OK_X  OUTLINE_RIGHT_X-BUTTON_W
-    #define BUTTON_OK_Y  BUTTON_EDIT_Y//
-    //数据坐标
-    #define X_Axis_Interval  50//54   //x轴上间隔距离像素
-    #define Y_Axis_Interval  52//35   //y轴上间隔距离像素
-    #define Rect_LU_X_POS    OUTLINE_LEFT_X+10//32   //第一个左上x坐标
-    // #define Rect_LU_Y_POS    OUTLINE_LEFT_Y+10//157-4  //第一个左上y坐标
-    #define Rect_LU_Y_POS    (OUTLINE_LEFT_Y+20)+3*Y_Axis_Interval//157-4  //第一个左上y坐标
+    #define BUTTON_OK_Y  BUTTON_EDIT_Y
+    //data coordinates
+    
+    #if ENABLED(SHOW_GRID_VALUES) && GRID_MAX_POINTS_X >= 7 && DISABLED(COMPACT_GRID_VALUES)
+        #error "Cannot fit GRID_MAX_POINTS_X >= 7 into LCD screen. Either set GRID_MAX_POINTS_X to lower value or enable COMPACT_GRID_VALUES"
+    #endif
+    #if ENABLED(SHOW_GRID_VALUES) && GRID_MAX_POINTS_X > 10
+        #error "Cannot fit GRID_MAX_POINTS_X > 10 into LCD screen. Either set GRID_MAX_POINTS_X to lower value or disable SHOW_GRID_VALUES"
+    #endif
+    #if ENABLED(SHOW_GRID_VALUES) && GRID_MAX_POINTS_Y > 10
+        #error "Cannot fit GRID_MAX_POINTS_Y > 10 into LCD screen. Either set GRID_MAX_POINTS_Y to lower value or disable SHOW_GRID_VALUES"
+    #endif
 
-    #define Rect_RD_X_POS    Rect_LU_X_POS+45//X_Axis_Interval//X_Axis_Interval//78   //第一个右下x坐标
-    // #define Rect_RD_Y_POS    Rect_LU_Y_POS+20//Y_Axis_Interval//Y_Axis_Interval//177-4  //第一个右下y坐标
-    #define Rect_RD_Y_POS    (Rect_LU_Y_POS+30)//Y_Axis_Interval//Y_Axis_Interval//177-4  //第一个右下y坐标
+    #if ENABLED(COMPACT_GRID_VALUES)
+        #define CELL_TEXT_WIDTH (3 * 8 + 1) // ".00" or "1.0" gives maximum 3 chars of 8x12 font per cell
+        #define CELL_TEXT_HEIGHT 22 // 12px for character height of 8x12 font + 10px for padding per cell
+    #else // COMPACT_GRID_VALUES
+        #define CELL_TEXT_WIDTH (5 * 8) // "-0.00" gives maximum 5 chars of 8x12 font per cell
+        #define CELL_TEXT_HEIGHT 14 // 12px for character height of 8x12 font + 14px for padding per cell
+    #endif // COMPACT_GRID_VALUES
+
+    #define _TOTAL_MIN_CELL_WIDTH (CELL_TEXT_WIDTH * GRID_MAX_POINTS_X)
+    #define _TOTAL_MIN_CELL_HEIGHT (CELL_TEXT_HEIGHT * GRID_MAX_POINTS_Y)
+
+    #define _SPACE_TO_SPREAD_HORIZONTAL (OUTLINE_INNER_WIDTH - _TOTAL_MIN_CELL_WIDTH)
+    #define _SPACE_TO_SPREAD_VERTICAL (OUTLINE_INNER_HEIGHT - _TOTAL_MIN_CELL_HEIGHT)
+
+    #if (_SPACE_TO_SPREAD_HORIZONTAL / (GRID_MAX_POINTS_X + GRID_MAX_POINTS_X + 1)) != 0 // allocate space evenly to celss and cell spacing and outer spacing
+        #define _CELL_GROW_HORIZONTAL (_SPACE_TO_SPREAD_HORIZONTAL / (GRID_MAX_POINTS_X + GRID_MAX_POINTS_X + 1))
+        #define _CELL_SPACING_HORIZONTAL (_SPACE_TO_SPREAD_HORIZONTAL / (GRID_MAX_POINTS_X + GRID_MAX_POINTS_X + 1))
+    #elif (_SPACE_TO_SPREAD_HORIZONTAL / (GRID_MAX_POINTS_X + GRID_MAX_POINTS_X - 1)) != 0 // allocate space evenly to celss and cell spacing
+        #define _CELL_GROW_HORIZONTAL (_SPACE_TO_SPREAD_HORIZONTAL / (GRID_MAX_POINTS_X + GRID_MAX_POINTS_X - 1))
+        #define _CELL_SPACING_HORIZONTAL (_SPACE_TO_SPREAD_HORIZONTAL / (GRID_MAX_POINTS_X + GRID_MAX_POINTS_X - 1))
+    #elif (_SPACE_TO_SPREAD_HORIZONTAL / GRID_MAX_POINTS_X) != 0 // allocate space evenly to cells
+        #define _CELL_GROW_HORIZONTAL (_SPACE_TO_SPREAD_HORIZONTAL / GRID_MAX_POINTS_X)
+        #define _CELL_SPACING_HORIZONTAL 0
+    #elif (_SPACE_TO_SPREAD_HORIZONTAL / GRID_MAX_POINTS_X - 1) != 0 // allocate space evenly to cell spacing
+        #define _CELL_GROW_HORIZONTAL 0
+        #define _CELL_SPACING_HORIZONTAL (_SPACE_TO_SPREAD_HORIZONTAL / GRID_MAX_POINTS_X - 1)
+    #else
+        #define _CELL_GROW_HORIZONTAL 0
+        #define _CELL_SPACING_HORIZONTAL 0
+    #endif
+
+    #if (_SPACE_TO_SPREAD_VERTICAL / (GRID_MAX_POINTS_Y + GRID_MAX_POINTS_Y + 1)) != 0 // allocate space evenly to celss and cell spacing
+        #define _CELL_GROW_VERTICAL (_SPACE_TO_SPREAD_VERTICAL / (GRID_MAX_POINTS_Y + GRID_MAX_POINTS_Y + 1))
+        #define _CELL_SPACING_VERTICAL (_SPACE_TO_SPREAD_VERTICAL / (GRID_MAX_POINTS_Y + GRID_MAX_POINTS_Y + 1))
+    #elif (_SPACE_TO_SPREAD_VERTICAL / (GRID_MAX_POINTS_Y + GRID_MAX_POINTS_Y - 1)) != 0 // allocate space evenly to celss and cell spacing
+        #define _CELL_GROW_VERTICAL (_SPACE_TO_SPREAD_VERTICAL / (GRID_MAX_POINTS_Y + GRID_MAX_POINTS_Y - 1))
+        #define _CELL_SPACING_VERTICAL (_SPACE_TO_SPREAD_VERTICAL / (GRID_MAX_POINTS_Y + GRID_MAX_POINTS_Y - 1))
+    #elif (_SPACE_TO_SPREAD_VERTICAL / GRID_MAX_POINTS_Y) != 0 // allocate space evenly to cells
+        #define _CELL_GROW_VERTICAL (_SPACE_TO_SPREAD_VERTICAL / GRID_MAX_POINTS_Y)
+        #define _CELL_SPACING_VERTICAL 0
+    #elif (_SPACE_TO_SPREAD_VERTICAL / GRID_MAX_POINTS_Y - 1) != 0 // allocate space evenly to cell spacing
+        #define _CELL_GROW_VERTICAL 0
+        #define _CELL_SPACING_VERTICAL (_SPACE_TO_SPREAD_VERTICAL / GRID_MAX_POINTS_Y - 1)
+    #else
+        #define _CELL_GROW_VERTICAL 0
+        #define _CELL_SPACING_VERTICAL 0
+    #endif
+
+    #define CELL_WIDTH (CELL_TEXT_WIDTH + _CELL_GROW_HORIZONTAL)
+    #define CELL_HEIGHT (CELL_TEXT_HEIGHT + _CELL_GROW_VERTICAL)
+
+    #define X_Axis_Interval (CELL_WIDTH + _CELL_SPACING_HORIZONTAL)
+    #define Y_Axis_Interval (CELL_HEIGHT + _CELL_SPACING_VERTICAL)
+    
+    #define _CELLS_WITH_SPACING_WIDTH    ((GRID_MAX_POINTS_X * CELL_WIDTH) + ((GRID_MAX_POINTS_X - 1) * _CELL_SPACING_HORIZONTAL))
+    #define _CELLS_WITH_SPACING_HEIGHT   ((GRID_MAX_POINTS_Y * CELL_HEIGHT) + ((GRID_MAX_POINTS_Y - 1) * _CELL_SPACING_VERTICAL))
+    #define _OUTLINE_PADDING_HORIZONTAL  ((OUTLINE_INNER_WIDTH - _CELLS_WITH_SPACING_WIDTH) / 2)
+    #define _OUTLINE_PADDING_VERTICAL    ((OUTLINE_INNER_HEIGHT - _CELLS_WITH_SPACING_HEIGHT) / 2)
+
+    #define Rect_LU_X_POS    (OUTLINE_LEFT_X + _OUTLINE_PADDING_HORIZONTAL) // top-left X of the first (bottom-left) cell
+    #define Rect_LU_Y_POS    (OUTLINE_LEFT_Y + OUTLINE_INNER_HEIGHT - _OUTLINE_PADDING_VERTICAL - CELL_HEIGHT) // top-left Y of the first (bottom-left) cell
+    #define Rect_RD_X_POS    (Rect_LU_X_POS + CELL_WIDTH) // bottom-right X of the first (bottom-left) cell
+    #define Rect_RD_Y_POS    (Rect_LU_Y_POS + CELL_HEIGHT) // bottom-right Y of the first (bottom-left) cell
 	
 #define TITLE_X 29
 #define TITLE_Y  1

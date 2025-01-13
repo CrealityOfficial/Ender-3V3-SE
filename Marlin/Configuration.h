@@ -168,6 +168,7 @@
 #define HIGH_SPEED              1 //高速模式 1：打开高速模式 150mm/s; 0：低速模式 80mm/s 
 #define HIGH_SPEED_1            1 //只开关高速的宏  
 #define SHOW_GRID_VALUES        1 //1 显示自动调平网格值  0 不显示自动调平网格值 
+#define COMPACT_GRID_VALUES     1 // 0 - original Creality style, 1 - compact style for tight grids
 #define K8_EXTRUDER             0 //1 是K8挤出机   0 是精灵挤出机
 #define USER_LEVEL_CHECK        1 // 调平校准使能
 #define WUHAN_CHENGE_PLATFORM   1 // 武汉改平台板  20230913_Rock
