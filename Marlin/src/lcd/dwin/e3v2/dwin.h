@@ -98,6 +98,13 @@ enum processID : uint8_t {
   MaxJerk_value,
   Step,
   Step_value,
+  #if ENABLED(HIGH_SPEED)
+    InputShaping,
+    InputShaping_XFreq,
+    InputShaping_XZeta,
+    InputShaping_YFreq,
+    InputShaping_YZeta,
+  #endif // ENABLED(HIGH_SPEED)
   HomeOff,
   HomeOffX,
   HomeOffY,
@@ -645,6 +652,9 @@ typedef struct
   float Move_X_scaled     = 0;
   float Move_Y_scaled     = 0;
   float Move_Z_scaled     = 0;
+  #if ENABLED(HIGH_SPEED)
+    float InputShaping_scaled = 0;
+  #endif // ENABLED(HIGH_SPEED)
   uint8_t Curve_index = 0;
   uint16_t Auto_PID_Temp  = 0;
   uint16_t Auto_PID_Value[3] = {0, 100, 260}; // 1:热床温度; 2 喷嘴温度
