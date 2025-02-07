@@ -71,6 +71,7 @@ lin 3D Printer Firmware
 #include "lcd_rts.h"
 #include "../../../module/AutoOffset.h"
 
+#include <QRCodeGenerator.h>
 
 #ifndef MACHINE_SIZE
   #define MACHINE_SIZE STRINGIFY(X_BED_SIZE) "x" STRINGIFY(Y_BED_SIZE) "x" STRINGIFY(Z_MAX_POS)
@@ -147,6 +148,8 @@ lin 3D Printer Firmware
   int8_t shift_amt; // = 0
   millis_t shift_ms; // = 0
   static uint8_t left_move_index=0;
+
+bool qrShown = false;
 
 /* Value Init */
 HMI_value_t HMI_ValueStruct;
@@ -1808,6 +1811,62 @@ void Draw_Tune_Menu()
     Draw_Menu_Line(TUNE_CASE_ZOFF, ICON_Zoffset);
     DWIN_Draw_Signed_Float(font8x16, Color_Bg_Black, 2, 2, VALUERANGE_X - 14, MBASE(TUNE_CASE_ZOFF), BABY_Z_VAR * 100);
   #endif
+}
+
+void draw_qrcode(const uint16_t topLeftX, const uint16_t topLeftY, const uint8_t moduleSize, const char *qrcode_data) {
+  // The structure to manage the QR code
+  QRCode qrcode;
+
+  // QR version 2 allows strings up to 47 chars, e.g. "https://bit.ly/qwertyuiop_asdfghjkl_zxcvbnm_123"
+  uint8_t QR_VERSION = 2;
+
+  // Allocate a chunk of memory to store the QR code
+  uint8_t qrcodeBytes[qrcode_getBufferSize(QR_VERSION)];
+
+  qrcode_initText(&qrcode, qrcodeBytes, QR_VERSION, ECC_LOW, qrcode_data);
+
+  DWIN_Draw_Rectangle(1, Color_White, topLeftX, topLeftY, topLeftX + qrcode.size * moduleSize, topLeftY + qrcode.size * moduleSize);
+
+  // top left position marker
+  DWIN_Draw_Rectangle(1, Color_Bg_Black, topLeftX, topLeftY, topLeftX + moduleSize * 7, topLeftY + moduleSize * 7);
+  DWIN_Draw_Rectangle(1, Color_White, topLeftX + moduleSize * 1, topLeftY + moduleSize * 1, topLeftX + moduleSize * 6, topLeftY + moduleSize * 6);
+  DWIN_Draw_Rectangle(1, Color_Bg_Black, topLeftX + moduleSize * 2, topLeftY + moduleSize * 2, topLeftX + moduleSize * 5, topLeftY + moduleSize * 5);
+  // top right position marker
+  DWIN_Draw_Rectangle(1, Color_Bg_Black, topLeftX + moduleSize * (qrcode.size - 7), topLeftY, topLeftX + moduleSize * qrcode.size, topLeftY + moduleSize * 7);
+  DWIN_Draw_Rectangle(1, Color_White, topLeftX + moduleSize * (qrcode.size - 6), topLeftY + moduleSize * 1, topLeftX + moduleSize * (qrcode.size - 1), topLeftY + moduleSize * 6);
+  DWIN_Draw_Rectangle(1, Color_Bg_Black, topLeftX + moduleSize * (qrcode.size - 5), topLeftY + moduleSize * 2, topLeftX + moduleSize * (qrcode.size - 2), topLeftY + moduleSize * 5);
+  // // bottom left position marker
+  DWIN_Draw_Rectangle(1, Color_Bg_Black, topLeftX, topLeftY + moduleSize * (qrcode.size - 7), topLeftX + moduleSize * 7, topLeftY + moduleSize * qrcode.size);
+  DWIN_Draw_Rectangle(1, Color_White, topLeftX + moduleSize * 1, topLeftY + moduleSize * (qrcode.size - 6), topLeftX + moduleSize * 6, topLeftY + moduleSize * (qrcode.size - 1));
+  DWIN_Draw_Rectangle(1, Color_Bg_Black, topLeftX + moduleSize * 2, topLeftY + moduleSize * (qrcode.size - 5), topLeftX + moduleSize * 5, topLeftY + moduleSize * (qrcode.size - 2));
+
+  for (uint8_t y = 0; y < qrcode.size; y++) {
+      for (uint8_t x = 0; x < qrcode.size; x++) {
+        // skip top left and bottom left position markers
+        if (x < 7 && (y < 7 || y > (qrcode.size - 7 - 1))) {
+          continue;
+        }
+        // skip top right position marker
+        if (x > (qrcode.size - 7 - 1) && y < 7) {
+          continue;
+        }
+        if (qrcode_getModule(&qrcode, x, y)) {
+          DWIN_Draw_Rectangle(
+            1,
+            Color_Bg_Black,
+            topLeftX + moduleSize * x, 
+            topLeftY + moduleSize * y,
+            topLeftX + moduleSize * (x + 1),
+            topLeftY + moduleSize * (y + 1)
+          );
+          delay(5);
+        }
+      }
+  }
+}
+
+void draw_qrcode(const uint16_t topLeftX, const uint16_t topLeftY, const uint8_t moduleSize, const __FlashStringHelper *qrcode_data) {
+  draw_qrcode(topLeftX, topLeftY, moduleSize, (const char *)qrcode_data);
 }
 
 void draw_max_en(const uint16_t line) {
