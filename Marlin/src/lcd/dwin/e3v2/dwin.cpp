@@ -4449,7 +4449,7 @@ void DC_Show_defaut_image()
   #endif
 }
 
-static void Isplay_Estimated_Time(int time) //显示剩余时间。
+static void Display_Estimated_Time(int time) //显示剩余时间。
 {
   int h,m,s;
   char cmd[30]={0};
@@ -4486,7 +4486,7 @@ static void Image_Preview_Information_Show(uint8_t ret)
       else DWIN_ICON_Show(ICON, ICON_LEVEL_CALIBRATION_OFF, ICON_ON_OFF_X, ICON_ON_OFF_Y);
       #endif
     }
-    if(ret == PIC_MISS_ERR)
+    if (ret == METADATA_PARSE_ERROR)
     {
       //没有图片预览数据
       DWIN_Draw_String(false, true, font8x16, Popup_Text_Color, Color_Bg_Black, WORD_TIME_X+DATA_OFFSET_X+52, WORD_TIME_Y+DATA_OFFSET_Y, F("0"));
@@ -4496,28 +4496,9 @@ static void Image_Preview_Information_Show(uint8_t ret)
     }
     else
     {
-      int predict_time;
-      float height1, height2, height3, volume, Filament;
-      char char_buf[20];
-      char char_buf1[20];
-      char str_1[20] = {0};
-      predict_time=atoi((char*)model_information.pre_time);
-      height1 = atof((char*)model_information.MAXZ);
-      height2 = atof((char*)model_information.MINZ);
-      // height3 = height1 - height2;
-      height3 = atof((char*)model_information.height);
-
-      // sprintf(char_buf,"%.1f",height3);
-      sprintf_P(char_buf, PSTR("%smm"), dtostrf(height3, 1, 1, str_1));
-      Filament = atof((char*)model_information.filament);
-      
-      volume = 2.4040625 * Filament;
-      // sprintf(char_buf1,"%.1f",volume);
-      // sprintf_P(char_buf1, PSTR("%smm^3"), dtostrf(volume, 1, 1, str_1));
-      Isplay_Estimated_Time(predict_time); // 显示剩余时间
-      DWIN_Draw_String(false,true,font8x16, Popup_Text_Color, Color_Bg_Black, WORD_LENTH_X+DATA_OFFSET_X, WORD_LENTH_Y+DATA_OFFSET_Y, &model_information.filament[0]);
-      DWIN_Draw_String(false,true,font8x16, Popup_Text_Color, Color_Bg_Black, WORD_HIGH_X+DATA_OFFSET_X, WORD_HIGH_Y+DATA_OFFSET_Y, &model_information.height[0]);  // 高度
-      // DWIN_Draw_String(false,true,font8x16, Popup_Text_Color, Color_Bg_Black, 175, 183, char_buf1);   // 体积
+      Display_Estimated_Time(atoi((char *)model_information.pre_time)); // Show remaining time
+      DWIN_Draw_String(false, true, font8x16, Popup_Text_Color, Color_Bg_Black, WORD_LENTH_X + DATA_OFFSET_X, WORD_LENTH_Y + DATA_OFFSET_Y, &model_information.filament[0]);
+      DWIN_Draw_String(false, true, font8x16, Popup_Text_Color, Color_Bg_Black, WORD_HIGH_X + DATA_OFFSET_X, WORD_HIGH_Y + DATA_OFFSET_Y, &model_information.height[0]);
     }
   
   #endif
@@ -4677,9 +4658,10 @@ void HMI_SelectFile()
       // 取消后缀 例如:filename.gcode 去掉.gocde
       make_name_without_ext(str, name);
       Draw_Title(str);
-      uint8_t ret = PIC_MISS_ERR;
+      uint8_t ret = METADATA_PARSE_ERROR;
       //Ender-3v3 SE暂时不支持图片预览功能，防止卡死，显示默认预览图片
-      ret = gcodePicDataSendToDwin(card.filename, VP_OVERLAY_PIC_PREVIEW_1, PRIWIEW_PIC_FORMAT_NEED, PRIWIEW_PIC_RESOLITION_NEED);
+      // ret = gcodePicDataSendToDwin(card.filename, VP_OVERLAY_PIC_PREVIEW_1, PRIWIEW_PIC_FORMAT_NEED, PRIWIEW_PIC_RESOLITION_NEED);
+      ret = read_gcode_model_information(card.filename);
       // if(ret == PIC_MISS_ERR) 
       DC_Show_defaut_image(); //由于此项目没有图片预览数据，所以显示默认小机器人图片    
       Image_Preview_Information_Show(ret);// 图片预览详情信息显示
@@ -7400,6 +7382,20 @@ void Remove_card_window_check(void)
   }
 }
 
+duration_t estimate_remaining_time(const duration_t elapsed)
+{
+  if (model_information.pre_time != NULL) {
+    return duration_t(atoi((char *)model_information.pre_time) - elapsed.value);
+  }
+  // remaining time is remaining file size (total file size minus current file position) times "speed" (file position per elapsed time).
+  // _fileFraction = (_card_percent * 0.01f);
+  // _elapsedTime = (elapsed.value - dwin_heat_time);
+  // _speed = (_fileFraction * (float)card.getFileSize()) / _elapsedTime;
+  // _remainSize = (float)card.getFileSize() * (1 - _fileFraction);
+  // _remain_time = _speed * _remainSize;
+  return duration_t((((_card_percent * 0.01f) * (float)card.getFileSize()) / ((elapsed.value + 1) - dwin_heat_time)) * ((float)card.getFileSize() * (100 - _card_percent)));
+}
+
 void EachMomentUpdate()
 {
   static float card_Index=0;
@@ -7711,29 +7707,10 @@ void EachMomentUpdate()
 
     // Estimate remaining time every 20 seconds
     static millis_t next_remain_time_update = 0;
-    if (_card_percent >= 1 && ELAPSED(ms, next_remain_time_update) && !HMI_flag.heat_flag)   //rock_20210922
-    {
-      // _remain_time = (elapsed.value - dwin_heat_time) / (_card_percent * 0.01f) - (elapsed.value - dwin_heat_time);
-      card_Index = card.getIndex();
-       // card_Index = 1;
-       // rock_20211115 解决偶尔剩余时间显示异常显示>100H 问题
-      if(card_Index > 0)
-      {
-        _remain_time = ((elapsed.value - dwin_heat_time) * ((float)card.getFileSize() / card_Index)) - (elapsed.value - dwin_heat_time);
-      }
-      else
-      {
-        _remain_time = 0;
-      }
-      next_remain_time_update += DWIN_REMAIN_TIME_UPDATE_INTERVAL;
-      Draw_Print_ProgressRemain();
-    }
-    else if(_card_percent<=1 && ELAPSED(ms, next_remain_time_update))
-    {
-      // rock_20210831  解决剩余时间不清零的问题。
-      _remain_time = 0;
-      Draw_Print_ProgressRemain();
-    }
+    _remain_time = estimate_remaining_time(elapsed).value;
+
+    next_remain_time_update += DWIN_REMAIN_TIME_UPDATE_INTERVAL;
+    Draw_Print_ProgressRemain();
   }
   else if (dwin_abort_flag && !HMI_flag.home_flag) 
   {

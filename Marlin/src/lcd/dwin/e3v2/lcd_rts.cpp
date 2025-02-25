@@ -49,9 +49,9 @@ bool gcodePicGetDataFormBase64(char * buf, unsigned long picLen, bool resetFlag)
   // 清除上次记录
   if (resetFlag)
   {
-    for (int i = 0; i < sizeof(base64_out); i++)
+    for (int i = 0; i < (signed)sizeof(base64_out); i++)
     {
-      base64_out[i] = '0x00';
+      base64_out[i] = 0x00;
     }
     deCodeBase64Cnt = 0;
     return true;
@@ -200,152 +200,109 @@ void gcodePicDispalyOnOff(unsigned int jpgAddr, bool onoff)
 model_information_t model_information;
 static const char * gcode_information_name[] =
 {
-  "TIME","Filament used","Layer height","MINX",
-  "MINY","MINZ","MAXX","MAXY","MAXZ"
-};
-//PIC_OK;
-#define READ_PIC_TIME            500  //读取图片预览数据超时时间
-uint8_t read_gcode_model_information(void)
-{ 
-  millis_t ms = millis();
-  millis_t next_read_pic_ms = millis()+READ_PIC_TIME;
-  int32_t  temp_value=0;
-  char buf[50];
-  char buf_true[50] = {0};
-  unsigned char i,j,k;
+  "TIME","Filament used","Layer height"
+};uint8_t read_gcode_model_information(const char* fileName)
+{
+  char string_buf[_GCODE_METADATA_STRING_LENGTH_MAX + 1];
   char *char_pos;
-  char ret;
+  char byte;
   unsigned char buf_state = 0;
-  uint8_t loop_max=0;
-  // SERIAL_ECHOLNPAIR("  millis()=: ", millis()); // rock_20210909
-  // SERIAL_ECHOLNPAIR(" next_read_pic_ms=: ", next_read_pic_ms); // rock_20210909
-  while(ret != ';')
+  uint8_t line_idx=0;
+
+  card.openFileRead(fileName);
+
+  while((line_idx++) < _MAX_LINES_TO_PARSE)
   {
-    temp_value= (millis()-next_read_pic_ms);
-    ret = card.get();
-    // SERIAL_ECHOLNPAIR(" temp_value=: ",  temp_value); // rock_20210909 
-    if(temp_value>0)
+    for (int i = 0; i < _GCODE_METADATA_STRING_LENGTH_MAX; i++)
     {
-      return PIC_MISS_ERR;
-    }
-  }
-  
-  while((loop_max++)<5)
-  {
-    i = 0;
-    memset(buf_true, 0, sizeof(buf_true));
-    // ret=0;
-    // 搜索到下一个;字符,就结束
-    next_read_pic_ms = millis()+READ_PIC_TIME;
-    while(ret != ';')
-    {
-      //temp_value= (millis()-next_read_pic_ms);
-      ret = card.get();
-      buf[i] = ret;
-      i++;
-      // 如果找了很多都没找到';',说明文件错误,直接退出
-      if(i > 50)
+      byte = card.get();
+
+      if (i == 0 && byte != ';') break; // skip non-comment strings
+
+      if (byte == '\r' || byte == '\n')
       {
-        goto gcode_information_err;
+        string_buf[i] = '\0';
+        break;
       }
-      // 结束,buf[]包含结束';'
-    }
-    // SERIAL_ECHO_MSG("buf:",buf);
-    // for(k = 0;k < 9;k++)
-    for(k = 0;k < 3;k++)
-    {
-      // 查找关键字
-      char_pos = strstr(buf, gcode_information_name[k]);
-      // 已经找到相对应的数据
-      if(char_pos != NULL)
+
+      // If you can't find ';' beyond max line length, it means the file is wrong.
+      if (i + 1 == _GCODE_METADATA_STRING_LENGTH_MAX)
       {
-        // 舍去文字,直接提取数值
-        char_pos+=strlen(gcode_information_name[k]);
-        while (1)
-        {
-          // 跳过冒号
-          // char_pos++;
-          if(*char_pos++ == ':')break;
+        memset(model_information.pre_time, 0, sizeof(model_information.pre_time));
+        memset(model_information.filament, 0, sizeof(model_information.filament));
+        memset(model_information.height, 0, sizeof(model_information.height));
+
+        return METADATA_PARSE_ERROR;
+      }
+
+      string_buf[i] = byte;
+    }
+    byte = 0;
+
+    #if ENABLED(USER_LOGIC_DEUBG)
+      SERIAL_ECHOLNPAIR("Input string: ", string_buf);
+    #endif
+
+    char* char_pos = string_buf;
+    // Skip leading semicolons and spaces
+    while (*char_pos == ';' || *char_pos == ' ') {
+        char_pos++;
+    }
+
+    // Check for each keyword
+    for(int k = 0; k < (signed)(sizeof(gcode_information_name) / sizeof(gcode_information_name[0])); k++)
+    {
+      // Check if the string starts with the keyword
+      // Corresponding data has been found
+      if (strncmp(char_pos, gcode_information_name[k], strlen(gcode_information_name[k])) == 0) {
+        // Move the pointer after the keyword
+        const char* value_buf = string_buf + strlen(gcode_information_name[k]) + 1;
+
+        // Skip optional symbols
+        while (*value_buf == ':' || *value_buf == ' ' || *value_buf == '=') {
+            value_buf++;
         }
-        for(j = 0;j < 15 ;j++)
-        {
-          buf_true[j] = *char_pos;
-          char_pos++;
-          if(*char_pos == '\r')
-          {
-            break;
-          }
-        }
-        // SERIAL_ECHOLNPAIR(" strlen(buf_true)=: ", strlen(buf_true)); // rock_20210909
-        if(' '==buf_true[0])strncpy(buf_true, buf_true+1,strlen(buf_true));//去除字符串前面的空格
-        i = 0;
-        memset(buf, 0, sizeof(buf));
-        // SERIAL_ECHOLN(buf_true);
+        #if ENABLED(USER_LOGIC_DEUBG)
+          SERIAL_ECHOLNPAIR("Parsed value_buf: ", value_buf);
+        #endif
+
+        buf_state++;
         switch(k)
         {
-          case 0:
+          case 0: // "TIME"
             memset(model_information.pre_time, 0, sizeof(model_information.pre_time));
-            strcpy(model_information.pre_time, buf_true);
+            strcpy(model_information.pre_time, value_buf);
             break;
-          case 1:
+          case 1: // "Filament used"
             memset(model_information.filament, 0, sizeof(model_information.filament));           
-            if(strlen(buf_true)>6)
+            if(strlen(value_buf)>6)
             {
-              strncpy(model_information.filament, buf_true,5);
-              if('m'==buf_true[strlen(buf_true)-1])
-              strncat(model_information.filament, &buf_true[strlen(buf_true)-1],1);
-              else if('m'==buf_true[strlen(buf_true)-2])strncat(model_information.filament, &buf_true[strlen(buf_true)-2],1);
+              strncpy(model_information.filament, value_buf,5);
+              if('m'==value_buf[strlen(value_buf)-1])
+              strncat(model_information.filament, &value_buf[strlen(value_buf)-1],1);
+              else if('m'==value_buf[strlen(value_buf)-2])strncat(model_information.filament, &value_buf[strlen(value_buf)-2],1);
             }
-            else strcpy(model_information.filament, buf_true);
+            else {
+              strcpy(model_information.filament, value_buf);
+            }
             break;
-          case 2:
+          case 2: // "Layer height"
             memset(model_information.height, 0, sizeof(model_information.height));
-            strcpy(model_information.height, buf_true);
+            strcpy(model_information.height, value_buf);
             strcat(model_information.height, "mm");
-            buf_state = 1;
             break;
         }
-        // break;
+        memset(string_buf, 0, sizeof(string_buf));
       }
     }
-    ret = 0;  //清空ret
-    if(buf_state)
+    if(buf_state == (sizeof(gcode_information_name) / sizeof(char*)))
     {
-      /*
-      SERIAL_ECHOLN("model_information end");
-      SERIAL_ECHOLN(model_information.pre_time);
-      SERIAL_ECHOLN(model_information.height);
-      SERIAL_ECHOLN(model_information.MAXX);
-      SERIAL_ECHOLN(model_information.MAXY);
-      SERIAL_ECHOLN(model_information.MAXZ);
-      SERIAL_ECHOLN(model_information.MINX);
-      SERIAL_ECHOLN(model_information.MINY);
-      SERIAL_ECHOLN(model_information.MINZ);
-      SERIAL_ECHOLN(model_information.filament);
-      */
       // Exit the loop
-      return PIC_OK;
+      return METADATA_PARSE_OK;
     }
-    // else 
-    // {
-    //    SERIAL_ECHOLNPAIR(" buf_state4444=: ", buf_state); // rock_20210909
-    //   return PIC_MISS_ERR;
-    // }
   }
-  return PIC_MISS_ERR;
-  gcode_information_err:
-    memset(model_information.pre_time, 0, sizeof(model_information.pre_time));
-    memset(model_information.filament, 0, sizeof(model_information.filament));
-    memset(model_information.height, 0, sizeof(model_information.height));
-    memset(model_information.MINX, 0, sizeof(model_information.MINX));
-    memset(model_information.MINY, 0, sizeof(model_information.MINY));
-    memset(model_information.MINZ, 0, sizeof(model_information.MINZ));
-    memset(model_information.MAXX, 0, sizeof(model_information.MAXX));
-    memset(model_information.MAXY, 0, sizeof(model_information.MAXY));
-    memset(model_information.MAXZ, 0, sizeof(model_information.MAXZ));
-    // SERIAL_ECHOLN("model_information error");
-    // SERIAL_ECHOLNPAIR(" buf_state5554=: ", buf_state); // rock_20210909
-    return PIC_MISS_ERR;
+
+  return METADATA_PARSE_ERROR;
 }
 
 /**
@@ -411,7 +368,7 @@ bool gcodePicDataRead(unsigned long picLenth, char isDisplay, unsigned long jpgA
     gcodePicDispalyOnOff(jpgAddr, true);
   }
 
-  read_gcode_model_information();
+  read_gcode_model_information(card.filename);
   return true;
 }
 
@@ -784,7 +741,7 @@ uint8_t gcodePicDataSendToDwin(char *fileName, unsigned int jpgAddr, unsigned ch
   // msTest = millis();
   // while (1)
   // {
-    ret=read_gcode_model_information();
+    ret=read_gcode_model_information(card.filename);
     // 当gcode中没有pic时，直接返回
     if (ret == PIC_MISS_ERR)
     {

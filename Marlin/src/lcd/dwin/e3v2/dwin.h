@@ -31,6 +31,8 @@
 
 #include "../../../inc/MarlinConfigPre.h"
 
+#include "../../../src/libs/duration_t.h"
+
 #if ANY(HAS_HOTEND, HAS_HEATED_BED, HAS_FAN) && PREHEAT_COUNT
   #define HAS_PREHEAT 1
   #if PREHEAT_COUNT < 2
@@ -897,6 +899,7 @@ void Draw_Status_Area(bool with_update);
 void Draw_Mid_Status_Area(bool with_update);
 void update_variable();
 void update_middle_variable();
+duration_t estimate_remaining_time(const duration_t elapsed);
 void Draw_laguage_Cursor(uint8_t line);
 void In_out_feedtock(uint16_t _distance,uint16_t _feedRate,bool dir);
 void In_out_feedtock_level(uint16_t _distance,uint16_t _feedRate,bool dir);
