@@ -5864,8 +5864,7 @@ void HMI_Levling_Change()
         {
           gcode.process_subcommands_now_P(PSTR("M420 S0"));
           checkkey=Level_Value_Edit;
-          select_level.reset();
-          xy_int8_t mesh_Count={0,0};
+          xy_int8_t mesh_Count = Converted_Grid_Point(select_level.now);
           Draw_Dots_On_Screen(&mesh_Count,1,Select_Block_Color);          
           EncoderRate.enabled = true;
           DO_BLOCKING_MOVE_TO_Z(5, 5);//每次都上升到5mm的高度再移动
@@ -5889,6 +5888,7 @@ void HMI_Levling_Change()
         {
           Goto_MainMenu();//回到主界面
         } 
+        select_level.reset();
         // HMI_flag.Refresh_bottom_flag=false;//标志不刷新底部参数
         // Draw_Mid_Status_Area(true); //rock_20230529 //更新一次全部参数       
       }
