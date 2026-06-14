@@ -1246,8 +1246,8 @@ inline bool Apply_Encoder(const ENCODER_DiffState &encoder_diffState, auto &valr
 #define CONTROL_CASE_RESET (CONTROL_CASE_SHOW_DATA + ENABLED(EEPROM_SETTINGS))
 
 //#define CONTROL_CASE_ADVSET (CONTROL_CASE_RESET + 1)  //rock_20210726
-//#define CONTROL_CASE_INFO  (CONTROL_CASE_ADVSET + 1)
-#define CONTROL_CASE_INFO  (CONTROL_CASE_RESET + 1)
+#define CONTROL_CASE_SOUND (CONTROL_CASE_RESET + 1)
+#define CONTROL_CASE_INFO  (CONTROL_CASE_SOUND + ENABLED(SOUND_MENU_ITEM))
 #define CONTROL_CASE_TOTAL CONTROL_CASE_INFO
 
 #define TUNE_CASE_SPEED 1
@@ -1695,6 +1695,12 @@ void Draw_Control_Menu()
     #endif
   }
   if(CVISI(CONTROL_CASE_RESET))DWIN_ICON_Show(HMI_flag.language, LANGUAGE_Reset, 42, CLINE(CONTROL_CASE_RESET) + JPN_OFFSET);
+  #if ENABLED(SOUND_MENU_ITEM)
+    if (CVISI(CONTROL_CASE_SOUND)) {
+      Draw_Menu_Line(CSCROL(CONTROL_CASE_SOUND), ICON_StockConfiguraton, GET_TEXT(MSG_SOUND), false);
+      Draw_Chkb_Line(CSCROL(CONTROL_CASE_SOUND), ui.buzzer_enabled);
+    }
+  #endif
   if (CVISI(CONTROL_CASE_INFO)) Item_Control_Info(CLINE(CONTROL_CASE_INFO));
   if (select_control.now && CVISI(select_control.now))
     Draw_Menu_Cursor(CSCROL(select_control.now));
@@ -5300,15 +5306,17 @@ void Draw_HomeOff_Menu()
   }
 #endif
 
-#if ENABLED(SPEAKER)
+#if USE_BEEPER
   #include "../../../libs/buzzer.h"
 #endif
 
 void HMI_AudioFeedback(const bool success=true)
 {
+  if (!ui.buzzer_enabled) return;
+
   if (success)
   {
-    #if ENABLED(SPEAKER)
+    #if USE_BEEPER
       buzzer.tone(100, 659);
       buzzer.tone(10, 0);
       buzzer.tone(100, 698);
@@ -5316,7 +5324,7 @@ void HMI_AudioFeedback(const bool success=true)
   }
   else
   {
-    #if ENABLED(SPEAKER)
+    #if USE_BEEPER
       buzzer.tone(40, 440);
     #endif
   }
@@ -5604,6 +5612,12 @@ void HMI_Control()
           Item_Control_Reset(MBASE(MROWS));
            Draw_Menu_Icon(MROWS, ICON_ResumeEEPROM);
           break;
+          #if ENABLED(SOUND_MENU_ITEM)
+            case CONTROL_CASE_SOUND:
+              Draw_Menu_Line(MROWS, ICON_StockConfiguraton, GET_TEXT(MSG_SOUND), false);
+              Draw_Chkb_Line(MROWS, ui.buzzer_enabled);
+              break;
+          #endif
           case CONTROL_CASE_INFO:    // Info >
             Item_Control_Info(MBASE(MROWS));
             Draw_Menu_Icon(MROWS, ICON_Info);
@@ -5724,6 +5738,14 @@ void HMI_Control()
         Draw_AdvSet_Menu();
         break;
       */
+      #if ENABLED(SOUND_MENU_ITEM)
+        case CONTROL_CASE_SOUND: // Sound on/off
+          ui.buzzer_enabled = !ui.buzzer_enabled;
+          Draw_Chkb_Line(CONTROL_CASE_SOUND + MROWS - index_control, ui.buzzer_enabled);
+          TERN_(EEPROM_SETTINGS, settings.save());
+          if (ui.buzzer_enabled) ui.chirp();
+          break;
+      #endif
       case CONTROL_CASE_INFO: // Info
         checkkey = Info;
         Draw_Info_Menu();
