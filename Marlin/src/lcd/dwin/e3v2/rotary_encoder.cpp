@@ -41,6 +41,7 @@
 #if HAS_BUZZER
   #include "../../../libs/buzzer.h"
 #endif
+#include "../../marlinui.h"
 #include "../dwin_lcd.h"
 #include <stdlib.h>
 
@@ -54,6 +55,7 @@ extern bool LCD_TURNOFF_FLAG;  // 息屏标志位
 extern uint8_t record_lcd_flag;
 // Buzzer
 void Encoder_tick() {
+  if (!ui.buzzer_enabled) return;
   #if PIN_EXISTS(BEEPER)
     WRITE(BEEPER_PIN, HIGH);
     delay(10);
